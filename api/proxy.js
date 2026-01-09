@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // === FULL CORS ===
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "*");
@@ -9,35 +8,40 @@ export default async function handler(req, res) {
   }
 
   try {
-    const baseUrl = process.env.FERDEV_BASE_URL;
-    const apiKey = process.env.FERDEV_API_KEY;
+    const API_KEY = process.env.FERDEV_API_KEY;
+    const BASE_URL = "https://api.ferdev.my.id";
 
-    // ambil path target
-    // contoh: /api/proxy?path=/downloader/ytmp4&link=xxxx
-    const { path, ...params } = req.query;
+    let { path, ...params } = req.query;
 
     if (!path) {
-      return res.status(400).json({
-        status: false,
-        message: "path parameter required",
-      });
+      return res.status(400).json({ status: false, error: "path required" });
     }
 
-    // inject API KEY (hidden)
-    params.apikey = apiKey;
+    // 🔥 pastikan path SELALU diawali /
+    if (!path.startsWith("/")) {
+      path = "/" + path;
+    }
 
-    // build query string
-    const queryString = new URLSearchParams(params).toString();
+    params.apikey = API_KEY;
 
-    const targetUrl = `${baseUrl}${path}?${queryString}`;
+    const qs = new URLSearchParams(params).toString();
+    const url = `${BASE_URL}${path}?${qs}`;
 
-    const response = await fetch(targetUrl);
-    const data = await response.json();
+    // DEBUG (opsional)
+    console.log("Proxy to:", url);
 
-    res.status(200).json(data);
+    const response = await fetch(url);
+    const text = await response.text();
+
+    // auto parse
+    try {
+      return res.status(200).json(JSON.parse(text));
+    } catch {
+      return res.status(200).send(text);
+    }
 
   } catch (err) {
-    res.status(500).json({
+    return res.status(500).json({
       status: false,
       error: err.message,
     });
